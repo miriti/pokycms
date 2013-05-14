@@ -5,6 +5,7 @@ define("DEFAULT_ROUTE", "index");
 define("DATA_DIR", "data");
 define("CONTENT_DIR", DATA_DIR . "/content");
 define("SNIPPETS_DIR", DATA_DIR . "/snippets");
+define("FILES_DIR", DATA_DIR . "/files");
 define("IN_CMS", true);
 define("ADMIN_PASSWORD", "admin123");
 
@@ -13,7 +14,8 @@ session_start();
 /**
  *
  */
-function buildUrl($route) {
+function buildUrl($route) 
+{
 	if(CLEAN_URLS){
 		return "/" . $route;
 	}else{
@@ -24,18 +26,21 @@ function buildUrl($route) {
 /**
  *
  */
-function getContent($route) {
+function getContent($route) 
+{
+	global $contentManifest;
+
 	$routeParts = explode('/', $route);
 	$folder = $routeParts[0];
 	$file = $routeParts[1];
 
 	$folderPath = CONTENT_DIR . '/' . $folder;
 	if(file_exists($folderPath))
-	{
+	{		
 		$content = (object) array('content' => $folder, 'contentList' => array(), 'page' => null, 'file' => null);
 
 		if($file == 'index') {
-			$dir = opendir($folderPath);			
+			$dir = opendir($folderPath);	
 			while (FALSE !== ($f = readdir($dir))) {
 				if($f[0] != '.'){
 					$content->contentList[] = getContent($folder . '/' . str_replace(".json", "", $f));
@@ -68,7 +73,8 @@ function renderContentPart($contentItem)
 /**
  *
  */
-function renderContent($content) {
+function renderContent($content) 
+{
 	if($content->page)
 	{
 		renderContentPart($content);
@@ -159,7 +165,7 @@ function admin_get_editor($editor)
 	foreach ($editors as $e) {
 		if($e->content == $editor)
 		return $e;
-}
+	}
 }
 
 function admin_header()
@@ -203,7 +209,7 @@ function admin_editor_list($editor)
 	<h1><?php echo $currentEditor->caption; ?></h1>
 	<div class="row">
 		<div class="span12">
-			<a href="?editor=<?php echo $editor; ?>&add=1" class="btn btn-primary"><i class="icon-plus icon-white"></i> Add</a>
+			<a href="?editor=<?php echo $editor; ?>&action=add" class="btn btn-primary"><i class="icon-plus icon-white"></i> Add</a>
 		</div>
 		<?php if($content->contentList) { ?>
 		<div class="span12">
@@ -228,8 +234,8 @@ function admin_editor_list($editor)
 				?>
 				<td>
 					<div class="btn-group">
-						<a href="?editor=<?php echo $editor; ?>&edit=<?php echo $contentItem->file; ?>" class="btn btn-mini btn-primary"><i class="icon-edit icon-white"></i></a>
-						<a href="?editor=<?php echo $editor; ?>&delete=<?php echo $contentItem->file; ?>" onclick="return confirm('Are you sure?');" class="btn btn-mini btn-danger"><i class="icon-remove icon-white"></i></a>
+						<a href="?editor=<?php echo $editor; ?>&action=edit&uid=<?php echo $contentItem->file; ?>" class="btn btn-mini btn-primary"><i class="icon-edit icon-white"></i></a>
+						<a href="?editor=<?php echo $editor; ?>&action=delete&uid=<?php echo $contentItem->file; ?>" onclick="return confirm('Are you sure?');" class="btn btn-mini btn-danger"><i class="icon-remove icon-white"></i></a>
 					</div>
 				</td>
 				<?php
@@ -256,27 +262,38 @@ function admin_generate_input($type, $group, $name, $value='')
 
 	switch ($type) {
 		case 'html':
-		return '<textarea name="' . $group . '[' . $name . ']" class="span6 mce" rows="10" cols="50">'.$value.'</textarea>';		
+			return '<textarea name="' . $group . '[' . $name . ']" class="span6 mce" rows="10" cols="50">'.$value.'</textarea>';		
 		case 'longtext':
-		return '<textarea name="' . $group . '[' . $name . ']" class="span6" rows="10" cols="50">'.$value.'</textarea>';
+			return '<textarea name="' . $group . '[' . $name . ']" class="span6" rows="10" cols="50">'.$value.'</textarea>';
+		case 'file':			
+			$max_upload = (int)(ini_get('upload_max_filesize'));
+			$max_post = (int)(ini_get('post_max_size'));
+			$memory_limit = (int)(ini_get('memory_limit'));
+			$upload_mb = min($max_upload, $max_post, $memory_limit);
+			return '<input type="' . $type . '" name="' . $group . '[' . $name . ']" class="span6" /><br /><small><b>' . $upload_mb . '</b>Mb max!</small>';
+			break;
 		default:
-		return '<input type="' . $type . '" name="' . $group . '[' . $name . ']" value="' . $value . '" class="span6" />';
+			return '<input type="' . $type . '" name="' . $group . '[' . $name . ']" value="' . $value . '" class="span6" />';
 	}
 }
 
 /**
  *
  */
-function admin_build_form($editor_name, $data = array())
+function admin_build_form($editor_name, $data = array(), $uid = false)
 {
 	$editor = admin_get_editor($editor_name);
+	if($uid === false)
+	{
+		$uid = md5(time());
+	}
 	?>
-	<form action="" method="post">
+	<form action="" method="post" enctype="multipart/form-data">
 		<div class="row">
 			<div class="span12"><strong>Unique identifier</strong></div>
 		</div>
 		<div class="row">
-			<div class="span12"><input type="text" name="uid" value="<?php echo md5(time()); ?>" class="span6"></div>
+			<div class="span12"><input type="text" name="<?php echo $editor_name; ?>[uid]" value="<?php echo $uid; ?>" class="span6"></div>
 		</div>
 		<?php
 		foreach ($editor->fields as $editorField) {
@@ -285,7 +302,7 @@ function admin_build_form($editor_name, $data = array())
 				<div class="span12"><strong><?php echo $editorField->text; ?></strong></div>
 			</div>
 			<div class="row">
-				<div class="span12"><?php echo admin_generate_input($editorField->type, $editor_name, $editorField->name); ?></div>
+				<div class="span12"><?php echo admin_generate_input($editorField->type, $editor_name, $editorField->name, isset($data[$editorField->name]) ? $data[$editorField->name] : ''); ?></div>
 			</div>
 			<?php
 		}
@@ -300,6 +317,52 @@ function admin_build_form($editor_name, $data = array())
 }
 
 /**
+ * Upload file
+ *
+ */
+function admin_upload_file($editor_name, $file_name)
+{
+	if(isset($_FILES[$editor_name]['error'][$file_name]) && ($_FILES[$editor_name]['error'][$file_name] == 0))
+	{
+		$upload_file_name = FILES_DIR . '/' . $_FILES[$editor_name]['name'][$file_name];
+		if(move_uploaded_file($_FILES[$editor_name]['tmp_name'][$file_name], $upload_file_name))
+		{
+			return '/' . $upload_file_name;
+		}else{
+			return false;
+		}
+	}
+	
+	return false;	
+}
+
+/**
+ *
+ */
+function admin_save_record($editor_name, $data)
+{
+	$editor = admin_get_editor($editor_name);
+
+	$uid = isset($data['uid']) ? $data['uid'] : time();
+
+	$jsonData = array();
+
+	foreach ($editor->fields as $editorField) {
+		switch ($editorField->type) {
+			case 'file':
+				$jsonData[$editorField->name] = admin_upload_file($editor_name, $editorField->name);
+				break;			
+			default:
+				$jsonData[$editorField->name] = $data[$editorField->name];	
+				break;
+		}		
+	}
+
+	$newFileName = CONTENT_DIR . '/' . $editor_name . '/' . $uid . '.json';
+	file_put_contents($newFileName, json_encode($jsonData));	
+}
+
+/**
  * Add content
  *
  */
@@ -307,19 +370,36 @@ function admin_editor_add($editor_name)
 {	
 	if(isset($_POST[$editor_name]))
 	{
-		$uid = isset($_POST['uid']) ? $_POST['uid'] : time();
-		$jsonData = $_POST[$editor_name];
-		$newFileName = CONTENT_DIR . '/' . $editor_name . '/' . $uid . '.json';
-		file_put_contents($newFileName, json_encode($jsonData));
+		admin_save_record($editor_name, $_POST[$editor_name]);
 		admin_redirect(buildUrl('-admin') . '?editor=' . $editor_name);
 	}
 	
 	admin_build_form($editor_name);
 }
 
-function admin_delete($editor, $file)
+/**
+ * Edit content 
+ *
+ */
+function admin_editor_edit($editor_name, $uid)
 {
-	@unlink(CONTENT_DIR . '/' . $editor . '/' . $file . '.json');
+	if(isset($_POST[$editor_name]))
+	{
+		admin_save_record($editor_name, $_POST[$editor_name]);
+		admin_redirect(buildUrl('-admin') . '?editor=' . $editor_name);
+	}
+
+	$content = getContent($editor_name . '/' . $uid);
+	admin_build_form($editor_name, (array)$content->page, $uid);
+}
+
+
+/**
+ * Delete content
+ */
+function admin_delete($editor, $uid)
+{
+	@unlink(CONTENT_DIR . '/' . $editor . '/' . $uid . '.json');
 	admin_redirect(buildUrl('-admin') . '?editor=' . $editor);
 }
 
@@ -353,16 +433,26 @@ function admin_main()
 			{
 				admin_header();
 				if(isset($_GET['editor'])){
-					if(isset($_GET['add']))
+					$editor = $_GET['editor'];
+
+					if(isset($_GET['action']))
 					{
-						admin_editor_add($_GET['editor']);
-					}else{
-						if(isset($_GET['delete']))
-						{
-							admin_delete($_GET['editor'], $_GET['delete']);
-						}else{
-							admin_editor_list($_GET['editor']);
+						switch ($_GET['action']) {
+							case 'add':
+								admin_editor_add($editor);
+								break;
+							case 'edit':
+								admin_editor_edit($editor, $_GET['uid']);
+								break;
+							case 'delete':
+								admin_delete($editor, $_GET['uid']);							
+								break;							
+							default:
+								admin_editor_list($editor);
+								break;
 						}
+					}else{
+						admin_editor_list($editor);
 					}
 				}
 			}else{
@@ -375,6 +465,7 @@ function admin_main()
 	<?php
 }
 
+$contentManifest = json_decode(file_get_contents('data/contentManifest.json'));
 $site = json_decode(file_get_contents('data/site.json'));
 
 if(isset($_GET['r'])) {
