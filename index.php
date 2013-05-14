@@ -409,6 +409,12 @@ function admin_delete($editor, $uid)
  */
 function admin_main()
 {		
+	if(isset($_GET['logout']))
+	{
+		unset($_SESSION['logout']);
+		session_destroy();
+		header("Location: /");
+	}
 	?>
 	<!doctype html>
 	<html>
