@@ -1,13 +1,6 @@
 <?php
 
-define("CLEAN_URLS", true);
-define("DEFAULT_ROUTE", "index");
-define("DATA_DIR", "data");
-define("CONTENT_DIR", DATA_DIR . "/content");
-define("SNIPPETS_DIR", DATA_DIR . "/snippets");
-define("FILES_DIR", DATA_DIR . "/files");
-define("IN_CMS", true);
-define("ADMIN_PASSWORD", "admin123");
+include('.instance.inc.php');
 
 session_start();
 
@@ -91,6 +84,8 @@ function renderContent($content)
 
 function admin_bar()
 {
+	global $lang;
+
 	if(isset($_SESSION['admin']))
 	{
 		?>
@@ -103,7 +98,7 @@ function admin_bar()
 		</style>
 		<div id="admin_bar">
 			<ul>
-				<li><a href="/-admin">Admin</a> (<a href="/-admin?logout=1">logout</a>)</li>				
+				<li><a href="/-admin">Admin</a> (<a href="/-admin?logout=1"><?php echo $lang->logout; ?></a>)</li>				
 			</ul>
 		</div>
 		<?php
@@ -124,6 +119,8 @@ function admin_redirect($url)
  */
 function admin_login()
 {
+	global $lang;
+
 	if(isset($_POST['password']))
 	{
 		if($_POST['password'] == ADMIN_PASSWORD)
@@ -138,13 +135,13 @@ function admin_login()
 			<form action="" method="post">
 				<div class="modal">
 					<div class="modal-header">					
-						<h3>Admin password</h3>
+						<h3><?php echo $lang->admin_password; ?></h3>
 					</div>
 					<div class="modal-body">					
 						<input type="password" name="password">					
 					</div>
 					<div class="modal-footer">
-						<button class="btn btn-primary">Log in</button>
+						<button class="btn btn-primary"><?php echo $lang->log_in; ?></button>
 					</div>
 				</div>
 			</form>
@@ -170,7 +167,8 @@ function admin_get_editor($editor)
 
 function admin_header()
 {
-	global $site;
+	global $site, $lang;
+
 	$editors = admin_get_editors();
 	$selected_editor = isset($_GET['editor']) ? $_GET['editor'] : '';
 	?>
@@ -185,13 +183,13 @@ function admin_header()
 			</ul>
 			<ul class="nav pull-right">
 				<li class="dropdown">
-					<a href="#" class="dropdown-toggle" data-toggle="dropdown">More <b class="caret"></b></a>
+					<a href="#" class="dropdown-toggle" data-toggle="dropdown"><?php echo $lang->more; ?> <b class="caret"></b></a>
 					<ul class="dropdown-menu">
-						<li><a href="#">Upload files</a></li>
-						<li><a href="#">Site properties</a></li>
-						<li><a href="#">Menu editor</a></li>
+						<li><a href="#"><?php echo $lang->upload_files; ?></a></li>
+						<li><a href="#"><?php echo $lang->site_props; ?></a></li>
+						<li><a href="#"><?php echo $lang->menu_editor; ?></a></li>
 						<li class="divider"></li>
-						<li><a href="/-admin?logout=1">Logout</a></li>
+						<li><a href="/-admin?logout=1"><?php echo $lang->logout; ?></a></li>
 					</ul>
 				</li>
 			</ul>
@@ -202,6 +200,8 @@ function admin_header()
 
 function admin_editor_list($editor)
 {
+	global $lang;
+
 	$currentEditor = admin_get_editor($editor);
 	$content = getContent($currentEditor->content . '/index');
 
@@ -209,7 +209,7 @@ function admin_editor_list($editor)
 	<h1><?php echo $currentEditor->caption; ?></h1>
 	<div class="row">
 		<div class="span12">
-			<a href="?editor=<?php echo $editor; ?>&action=add" class="btn btn-primary"><i class="icon-plus icon-white"></i> Add</a>
+			<a href="?editor=<?php echo $editor; ?>&action=add" class="btn btn-primary"><i class="icon-plus icon-white"></i> <?php echo $lang->add; ?></a>
 		</div>
 		<?php if($content->contentList) { ?>
 		<div class="span12">
@@ -235,7 +235,7 @@ function admin_editor_list($editor)
 				<td>
 					<div class="btn-group">
 						<a href="?editor=<?php echo $editor; ?>&action=edit&uid=<?php echo $contentItem->file; ?>" class="btn btn-mini btn-primary"><i class="icon-edit icon-white"></i></a>
-						<a href="?editor=<?php echo $editor; ?>&action=delete&uid=<?php echo $contentItem->file; ?>" onclick="return confirm('Are you sure?');" class="btn btn-mini btn-danger"><i class="icon-remove icon-white"></i></a>
+						<a href="?editor=<?php echo $editor; ?>&action=delete&uid=<?php echo $contentItem->file; ?>" onclick="return confirm('<?php echo $lang->are_you_sure; ?>');" class="btn btn-mini btn-danger"><i class="icon-remove icon-white"></i></a>
 					</div>
 				</td>
 				<?php
@@ -270,7 +270,7 @@ function admin_generate_input($type, $group, $name, $value='')
 			$max_post = (int)(ini_get('post_max_size'));
 			$memory_limit = (int)(ini_get('memory_limit'));
 			$upload_mb = min($max_upload, $max_post, $memory_limit);
-			return '<input type="' . $type . '" name="' . $group . '[' . $name . ']" class="span6" /><br /><small><b>' . $upload_mb . '</b>Mb max!</small>';
+			return '<input type="' . $type . '" name="' . $group . '[' . $name . ']" class="span6" /><br /><small><b>' . $upload_mb . '</b>Mb '.$lang->max.'!</small>';
 			break;
 		default:
 			return '<input type="' . $type . '" name="' . $group . '[' . $name . ']" value="' . $value . '" class="span6" />';
@@ -282,6 +282,8 @@ function admin_generate_input($type, $group, $name, $value='')
  */
 function admin_build_form($editor_name, $data = array(), $uid = false)
 {
+	global $lang;
+
 	$editor = admin_get_editor($editor_name);
 	if($uid === false)
 	{
@@ -290,7 +292,7 @@ function admin_build_form($editor_name, $data = array(), $uid = false)
 	?>
 	<form action="" method="post" enctype="multipart/form-data">
 		<div class="row">
-			<div class="span12"><strong>Unique identifier</strong></div>
+			<div class="span12"><strong><?php echo $lang->unique_id; ?></strong></div>
 		</div>
 		<div class="row">
 			<div class="span12"><input type="text" name="<?php echo $editor_name; ?>[uid]" value="<?php echo $uid; ?>" class="span6"></div>
@@ -309,7 +311,7 @@ function admin_build_form($editor_name, $data = array(), $uid = false)
 		?>
 		<div class="row">
 			<div class="span12">
-				<button class="btn btn-primary" type="submit">Save</button>
+				<button class="btn btn-primary" type="submit"><?php echo $lang->save; ?></button>
 			</div>
 		</div>
 	</form>
@@ -471,6 +473,7 @@ function admin_main()
 	<?php
 }
 
+$lang = json_decode(file_get_contents('lang/'.CMS_LANGUAGE.'.json'));
 $contentManifest = json_decode(file_get_contents('data/contentManifest.json'));
 $site = json_decode(file_get_contents('data/site.json'));
 

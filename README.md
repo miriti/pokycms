@@ -15,6 +15,10 @@ When should I use PockyCMS?
 * Simple web-sites with small data amount and traffic
 * When database is not an option
 
+Requirements
+------------
+* PHP 4+ with JSON extension
+
 Components
 ----------
 PockyCMS uses:
