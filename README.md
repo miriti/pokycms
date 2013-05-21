@@ -1,13 +1,13 @@
 PokyCMS
 =======
 
-PockyCMS is lightweight and simple CMS. All logic of this CMS contains in one file (index.php).
+PockyCMS is lightweight and simple CMS. All logic contains in one file (index.php).
 
 Features
 -------
 * Lightweight
 * Easy to implement
-* No database used (all data stores in .json files)
+* No database (all data in .json files)
 * Easy to use
 
 When should I use PockyCMS?

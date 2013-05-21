@@ -1,5 +1,4 @@
 <?php
-
 include('.instance.inc.php');
 
 session_start();
@@ -69,14 +68,20 @@ function renderContentPart($contentItem)
 function renderContent($content) 
 {
 	if($content->page)
-	{
+	{		
 		renderContentPart($content);
 	}else{
 		if($content->contentList) 
 		{
-			foreach ($content->contentList as $contentItem) 
+			$index_file = SNIPPETS_DIR . '/' . $content->content . '_index.php';
+			if(file_exists($index_file))
 			{
-				renderContentPart($contentItem);
+				include($index_file);
+			}else{
+				foreach ($content->contentList as $contentItem) 
+				{
+					renderContentPart($contentItem);
+				}
 			}
 		}
 	}
@@ -185,9 +190,9 @@ function admin_header()
 				<li class="dropdown">
 					<a href="#" class="dropdown-toggle" data-toggle="dropdown"><?php echo $lang->more; ?> <b class="caret"></b></a>
 					<ul class="dropdown-menu">
-						<li><a href="#"><?php echo $lang->upload_files; ?></a></li>
-						<li><a href="#"><?php echo $lang->site_props; ?></a></li>
-						<li><a href="#"><?php echo $lang->menu_editor; ?></a></li>
+						<li><a href="?filemanager"><?php echo $lang->filemanager; ?></a></li>
+						<li><a href="?menueditor"><?php echo $lang->menu_editor; ?></a></li>
+						<li><a href="?site_props"><?php echo $lang->site_props; ?></a></li>
 						<li class="divider"></li>
 						<li><a href="/-admin?logout=1"><?php echo $lang->logout; ?></a></li>
 					</ul>
@@ -255,6 +260,8 @@ function admin_editor_list($editor)
  */
 function admin_generate_input($type, $group, $name, $value='')
 {
+	global $lang;
+
 	if(($type == 'date') && ($value == ''))
 	{
 		$value = date("Y-m-d");
@@ -326,7 +333,14 @@ function admin_upload_file($editor_name, $file_name)
 {
 	if(isset($_FILES[$editor_name]['error'][$file_name]) && ($_FILES[$editor_name]['error'][$file_name] == 0))
 	{
-		$upload_file_name = FILES_DIR . '/' . $_FILES[$editor_name]['name'][$file_name];
+		$upload_dir = FILES_DIR . '/' . $editor_name;
+
+		if(file_exists($upload_dir))
+		{
+			mkdir($upload_dir);
+		}
+
+		$upload_file_name = $upload_dir . '/' . $_FILES[$editor_name]['name'][$file_name];
 		if(move_uploaded_file($_FILES[$editor_name]['tmp_name'][$file_name], $upload_file_name))
 		{
 			return '/' . $upload_file_name;
@@ -405,6 +419,108 @@ function admin_delete($editor, $uid)
 	admin_redirect(buildUrl('-admin') . '?editor=' . $editor);
 }
 
+function admin_filemanager()
+{
+	?>
+	<div class="row">
+		<div class="span12"><iframe src="/filemanager/" frameborder="0" width="100%" height="800"></iframe></div>
+	</div>
+	<?php
+}
+
+function admin_menu_editor()
+{
+	global $menus, $lang;
+
+	if(isset($_POST['menus']))
+	{
+		$menus = $_POST['menus'];
+
+		foreach ($menus as $menuName => &$menuItems) {
+			foreach ($menuItems as $menuItemId => &$menuItem) {
+				if(trim($menuItem['title']) == "")
+				{
+					unset($menuItems[$menuItemId]);
+				}
+			}
+		}
+
+		$newItem = $_POST['new'];
+
+		foreach ($newItem as $menuName => $newMenuItem) {
+			if(trim($newMenuItem['title']) != "")
+			{
+				$menus[$menuName][] = $newMenuItem;
+			}
+		}
+
+		file_put_contents('data/menus.json', json_encode($menus));
+		admin_redirect("?menueditor");
+		return;
+	}
+
+	?>
+	<form action="" method="post">
+	<?php
+	
+	foreach ($menus as $menuName => $menu) 
+	{
+	?>
+	<h2><?php echo $menuName; ?></h2>	
+	<?php
+		foreach ($menu as $itemNum => $menuItem) 
+		{
+			?>
+			<div class="row">
+				<div class="span3"><input type="text" name="menus[<?php echo $menuName; ?>][<?php echo $itemNum; ?>][title]" value="<?php echo $menuItem->title; ?>"></div>
+				<div class="span4"><input type="text" name="menus[<?php echo $menuName; ?>][<?php echo $itemNum; ?>][route]" value="<?php echo $menuItem->route; ?>"></div>
+			</div>
+			<?php
+		}
+		?>
+		<h4><?php echo $lang->add; ?></h4>
+		<div class="row">
+			<div class="span3"><input type="text" name="new[<?php echo $menuName; ?>][title]" value=""></div>
+			<div class="span4"><input type="text" name="new[<?php echo $menuName; ?>][route]" value=""></div>
+		</div>
+		<hr>
+		<?php
+	}
+	?>	
+	<div class="row">
+		<div class="span12"><button type="submit" class="btn btn-primary"><?php echo $lang->save; ?></button></div>
+	</div>
+	</form>
+	<?php
+}
+
+function admin_site_props()
+{
+	global $site, $lang;
+
+	if(isset($_POST['siteProps']))
+	{
+		$site = $_POST['siteProps'];
+		file_put_contents('data/site.json', json_encode($site));
+		admin_redirect("?site_props");
+		return;
+	}	
+
+	?>
+	<form action="" method="post">
+		<?php foreach ($site as $prop_name => $prop_val) { ?>
+		<div class="row">
+			<div class="span2"><?php echo $prop_name; ?></div>
+			<div class="span2"><input type="text" name="siteProps[<?php echo $prop_name; ?>]" value="<?php echo $prop_val; ?>"></div>
+		</div>
+		<?php } ?>
+		<div class="row">
+			<div class="span4"><button type="submit" class="btn btn-primary"><?php echo $lang->save; ?></button></div>
+		</div>
+	</form>
+	<?php
+}
+
 /**
  * Admin main
  *
@@ -428,7 +544,8 @@ function admin_main()
 		tinymce.init({
 			selector: "textarea.mce",
 			plugins: "image media",
-			language : "ru"
+			language : "ru",
+			relative_urls: false
 		});
 		</script>		
 	</head>
@@ -461,6 +578,19 @@ function admin_main()
 						}
 					}else{
 						admin_editor_list($editor);
+					}
+				}else{
+					if(isset($_GET['filemanager']))
+					{
+						admin_filemanager();
+					}
+					if(isset($_GET['menueditor']))
+					{
+						admin_menu_editor();
+					}
+					if(isset($_GET['site_props']))
+					{
+						admin_site_props();
 					}
 				}
 			}else{
