@@ -18,7 +18,7 @@ function buildUrl($route)
 /**
  *
  */
-function getContent($route) 
+function getContent($route, $position=0) 
 {
 	global $contentManifest;
 
@@ -28,22 +28,40 @@ function getContent($route)
 
 	$folderPath = CONTENT_DIR . '/' . $folder;
 	if(file_exists($folderPath))
-	{		
-		$content = (object) array('content' => $folder, 'contentList' => array(), 'page' => null, 'file' => null);
+	{
+		$content = (object) array('content' => $folder, 'contentList' => array(), 'page' => null, 'file' => null, 'position' => null);
 
 		if($file == 'index') {
 			$dir = opendir($folderPath);	
+			$num = 0;
+			$contentList = array();
 			while (FALSE !== ($f = readdir($dir))) {
 				if($f[0] != '.'){
-					$content->contentList[] = getContent($folder . '/' . str_replace(".json", "", $f));
+					$subContent = getContent($folder . '/' . str_replace(".json", "", $f), $num);
+
+					if(is_numeric($subContent->position)){
+						$contentList[intval($subContent->position)] = $subContent;
+					}else{
+						$contentList[$num] = $subContent;
+					}
+
+					$num++;
 				}
 			}
+			ksort($contentList);
+			$content->contentList = $contentList;
 			return $content;
 		}else{
 			if(file_exists('data/content/' . $folder . '/' . $file . '.json'))
 			{
+				$decoded_file = json_decode(file_get_contents($folderPath . '/' . $file . '.json'));
 				$content->file = $file;
-				$content->page = json_decode(file_get_contents($folderPath . '/' . $file . '.json'));
+				if(isset($decoded_file->position)){
+					$content->position = $decoded_file->position;
+				}else{
+					$content->position = $position;
+				}
+				$content->page = $decoded_file;
 				return $content;
 			}else{
 				return null;
@@ -543,7 +561,7 @@ function admin_main()
 		<script type="text/javascript">
 		tinymce.init({
 			selector: "textarea.mce",
-			plugins: "image media",
+			plugins: "image media code",
 			language : "ru",
 			relative_urls: false
 		});
